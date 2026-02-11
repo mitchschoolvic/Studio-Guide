@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        /* The "Card" Container */
+        .tracking-card {
+            width: 400px;
+            height: 400px;
+            background: #2d2d2d;
+            border-radius: 20px;
+            position: relative;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* The "Head" Avatar */
+        .head-avatar {
+            width: 40px;
+            height: 40px;
+            background: #00ff88;
+            border-radius: 50%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: translate(-50%, -50%);
+            /* Center pivot */
+            box-shadow: 0 0 15px #00ff88;
+            transition: transform 0.05s linear;
+            /* Smooth interpolation */
+        }
+
+        /* Zones */
+        .zone {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 20%;
+            background: rgba(255, 50, 50, 0.2);
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            text-align: center;
+            padding-top: 10px;
+            font-size: 12px;
+        }
+
+        .status {
+            margin-top: 20px;
+            color: #888;
+        }
+
+        /* Admin Controls */
+        #admin-controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: #333;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        select,
+        button {
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: none;
+            font-size: 14px;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+
+        button.active {
+            background: #dc3545;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1 id="page-title">Admin Panel</h1>
+
+    <div class="tracking-card">
+        <div class="zone">Inactive Zone</div>
+        <div id="avatar" class="head-avatar"></div>
+    </div>
+
+    <div class="status" id="debug-text">Waiting for Python...</div>
+
+    <div id="admin-controls" class="hidden">
+        <select id="display-select"></select>
+        <button id="toggle-btn">Start Presentation</button>
+    </div>
+
+    <script>
+        const avatar = document.getElementById('avatar');
+        const debug = document.getElementById('debug-text');
+        const title = document.getElementById('page-title');
+        const adminControls = document.getElementById('admin-controls');
+        const displaySelect = document.getElementById('display-select');
+        const toggleBtn = document.getElementById('toggle-btn');
+
+        // Parse Mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode') || 'admin';
+
+        if (mode === 'secondary') {
+            title.innerText = 'Welcome';
+            debug.classList.add('hidden');
+            adminControls.classList.add('hidden');
+        } else {
+            // Admin Mode
+            title.innerText = 'Admin Panel';
+            adminControls.classList.remove('hidden');
+
+            // Initialize Display List
+            (async () => {
+                const displays = await window.electronAPI.getDisplays();
+                displays.forEach((d, idx) => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.text = `${d.label} (${d.bounds.width}x${d.bounds.height})`;
+                    // Default to secondary if available
+                    if (displays.length > 1 && idx === 1) opt.selected = true;
+                    displaySelect.appendChild(opt);
+                });
+            })();
+
+            // Toggle Logic
+            toggleBtn.addEventListener('click', async () => {
+                const displayId = parseInt(displaySelect.value);
+                const isActive = await window.electronAPI.toggleSecondaryWindow(displayId);
+
+                if (isActive) {
+                    toggleBtn.innerText = 'Stop Presentation';
+                    toggleBtn.classList.add('active');
+                } else {
+                    toggleBtn.innerText = 'Start Presentation';
+                    toggleBtn.classList.remove('active');
+                }
+            });
+        }
+
+        // Listen to the data bridge exposed in preload.js
+        window.electronAPI.onTrackingUpdate((jsonString) => {
+            const data = JSON.parse(jsonString);
+
+            // Convert normalized 0.0-1.0 coords to pixels (400x400 card)
+            const x = data.head.x * 400;
+            const y = data.head.y * 400;
+
+            // Apply to CSS (Hardware Accelerated)
+            // Note: We use 'transform' for highest performance, not top/left
+            avatar.style.transform = `translate(${x}px, ${y}px)`;
+
+            // Update Text only if visible
+            if (mode !== 'secondary') {
+                debug.innerText = `X: ${data.head.x.toFixed(2)} | Y: ${data.head.y.toFixed(2)}`;
+            }
+
+            // Visual feedback on state
+            avatar.style.background = data.is_active ? '#00ff88' : '#ffaa00';
+        });
+    </script>
+</body>
+
+</html>

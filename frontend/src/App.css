@@ -1,0 +1,249 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #000;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+.app-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Dashboard Layout */
+/* Dashboard Layout */
+.app-container.dashboard {
+  display: flex;
+  /* Kept as flex to potentially allow a sidebar if needed later, but currently just main */
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+  background: #0d0d0d;
+}
+
+.dashboard-main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Settings Modal */
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.settings-modal-content {
+  background: #1a1a1a;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  border: 1px solid #333;
+  padding: 20px;
+  position: relative;
+}
+
+.settings-close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.settings-close-btn:hover {
+  color: #fff;
+  background: transparent;
+}
+
+.settings-trigger-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: #333;
+  padding: 12px;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.settings-trigger-btn:hover {
+  background: #4facfe;
+  transform: scale(1.1);
+}
+
+/* 16:9 Aspect Ratio Container */
+.card-slot {
+  flex: 1;
+  min-height: 0;
+  /* CRITICAL: Enable Container Queries for this element */
+  container-type: size;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.widget-card {
+  background: #1a1a1a;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.widget-card.aspect-16-9-locked {
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  margin: auto;
+
+  /* Safety caps to ensure it never overflows regardless of logic */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* --- CONTAINER QUERY MAGIC --- */
+
+/* Case 1: The SLOT is flatter/wider than 16:9. 
+   We must limit by Height. Width will auto-calculate. */
+@container (min-aspect-ratio: 16/9) {
+  .widget-card.aspect-16-9-locked {
+    height: 100%;
+    width: auto;
+  }
+}
+
+/* Case 2: The SLOT is taller/narrower than 16:9. 
+   We must limit by Width. Height will auto-calculate. */
+@container (max-aspect-ratio: 16/9) {
+  .widget-card.aspect-16-9-locked {
+    width: 100%;
+    height: auto;
+  }
+}
+
+.aspect-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.widget-card.controls {
+  padding: 20px;
+  color: #eee;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Controls Styling */
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+button {
+  background: #3a3a3a;
+  color: white;
+  border: 1px solid #555;
+  padding: 0.8em 1.2em;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 8px;
+}
+
+button:hover {
+  background: #535bf2;
+  border-color: #535bf2;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.stats {
+  font-family: monospace;
+  font-size: 0.9em;
+  color: #888;
+}
+
+/* Secondary View */
+.secondary-view {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.fullscreen-tracker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.overlay-text {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 30px;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.overlay-text h1 {
+  margin: 0;
+  color: white;
+}

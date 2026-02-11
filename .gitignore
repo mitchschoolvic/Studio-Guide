@@ -1,0 +1,54 @@
+# Ignore build outputs and binaries
+release_builds/
+out/
+
+# Ignore logs and context files
+log.txt
+generate_context.py
+generate_llm_context.py
+llm_context_lite.md
+
+# Ignore node_modules and dependencies
+node_modules/
+
+# Ignore OS and editor files
+.DS_Store
+*.swp
+*.swo
+
+# Ignore other common binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.app
+*.dmg
+*.zip
+*.tar.gz
+*.tgz
+*.tar
+*.7z
+*.rar
+*.iso
+*.jar
+*.class
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Vite/React/TypeScript build artifacts
+frontend/dist/
+frontend/node_modules/
+frontend_vanilla/node_modules/
+
+# Ignore environment and config files
+.env
+.env.*
+
+# Ignore coverage and test output
+coverage/
+*.lcov
+
+# Ignore VSCode settings
+.vscode/

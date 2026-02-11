@@ -1,0 +1,31 @@
+{
+    "id": "studio-guide",
+    "name": "Studio Guide",
+    "shortname": "studio-guide",
+    "description": "Send variables to GuideApp Electron via WebSocket",
+    "version": "1.0.0",
+    "license": "MIT",
+    "repository": "git+https://github.com/user/studio-guide.git",
+    "bugs": "https://github.com/user/studio-guide/issues",
+    "maintainers": [
+        {
+            "name": "Mitch Anderson",
+            "email": "mitch@example.com"
+        }
+    ],
+    "legacyIds": [],
+    "runtime": {
+        "type": "node18",
+        "api": "nodejs-ipc",
+        "apiVersion": "0.0.0",
+        "entrypoint": "../main.js"
+    },
+    "manufacturer": "Mitch Anderson",
+    "products": [
+        "Studio Guide"
+    ],
+    "keywords": [
+        "variables",
+        "guideapp"
+    ]
+}
