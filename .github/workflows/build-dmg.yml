@@ -1,0 +1,140 @@
+name: Build DMG
+
+on:
+  workflow_dispatch:        # Manual trigger from GitHub UI
+  push:
+    tags:
+      - 'v*'               # Auto-trigger on version tags like v1.0.44
+
+jobs:
+  build:
+    runs-on: macos-14       # Apple Silicon (arm64) runner
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      # --- 1. Version Management ---
+      - name: Increment version
+        id: version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = require('./package.json');
+            const parts = pkg.version.split('.');
+            parts[2] = parseInt(parts[2], 10) + 1;
+            pkg.version = parts.join('.');
+            fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('New Version:', pkg.version);
+          "
+          echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      # --- 2. Copy Icon ---
+      - name: Copy icon
+        run: cp "icon/icon_1024x1024_1024x1024.icns" "icon.icns"
+
+      # --- 3. Build Frontend ---
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Verify frontend build
+        run: |
+          if [ ! -d "frontend/dist" ]; then
+            echo "Error: Frontend build failed. 'frontend/dist' not found."
+            exit 1
+          fi
+
+      # --- 4. Build Electron App ---
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Rebuild native modules for Electron
+        run: ./node_modules/.bin/electron-rebuild
+
+      - name: Package Electron app
+        run: |
+          npx electron-packager . "Studio Guide" \
+            --platform=darwin \
+            --arch=arm64 \
+            --out=out \
+            --overwrite \
+            --ignore="^/backend/(?!dist)" \
+            --ignore="^/backend/build" \
+            --ignore="^/backend/venv" \
+            --ignore="^/out" \
+            --ignore="^/frontend" \
+            --ignore="^/release_builds" \
+            --ignore="^/dist/.*\.dmg$" \
+            --ignore="^/dist/.*\.zip$" \
+            --ignore="^/\.git" \
+            --ignore="^/\.ds_store" \
+            --icon="icon.icns"
+
+      - name: Verify Electron packaging
+        run: |
+          if [ ! -d "out/Studio Guide-darwin-arm64/Studio Guide.app" ]; then
+            echo "Error: Electron packager failed."
+            exit 1
+          fi
+
+      # --- 5. Inject Frontend Dist ---
+      - name: Inject frontend into app bundle
+        run: |
+          APP_PATH="out/Studio Guide-darwin-arm64/Studio Guide.app"
+          mkdir -p "$APP_PATH/Contents/Resources/frontend"
+          cp -R "frontend/dist" "$APP_PATH/Contents/Resources/frontend/dist"
+
+      # --- 6. Ad-hoc Code Signing ---
+      - name: Ad-hoc code sign
+        run: |
+          codesign -s - --force --deep "out/Studio Guide-darwin-arm64/Studio Guide.app"
+
+      # --- 7. Create DMG ---
+      - name: Create DMG
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          APP_PATH="out/Studio Guide-darwin-arm64/Studio Guide.app"
+          DMG_SRC="out/dmg_source"
+          DMG_PATH="release_builds/Studio Guide-${VERSION}.dmg"
+
+          mkdir -p release_builds "$DMG_SRC"
+          cp -R "$APP_PATH" "$DMG_SRC/"
+          ln -s /Applications "$DMG_SRC/Applications"
+
+          hdiutil create -volname "Studio Guide" \
+            -srcfolder "$DMG_SRC" \
+            -ov -format UDZO "$DMG_PATH"
+
+          rm -rf "$DMG_SRC"
+          echo "dmg_path=$DMG_PATH" >> $GITHUB_OUTPUT
+        id: dmg
+
+      # --- 8. Upload DMG as artifact ---
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Studio-Guide-${{ steps.version.outputs.version }}-arm64.dmg
+          path: release_builds/*.dmg
+          retention-days: 30
+
+      # --- 9. (Optional) Create GitHub Release on tag push ---
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_builds/*.dmg
+          generate_release_notes: true

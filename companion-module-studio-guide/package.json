@@ -1,0 +1,22 @@
+{
+  "name": "companion-module-studio-guide",
+  "version": "1.0.0",
+  "main": "main.js",
+  "type": "commonjs",
+  "license": "MIT",
+  "manufacturer": "Mitch Anderson",
+  "products": [
+    "Studio Guide"
+  ],
+  "keywords": [
+    "Companion",
+    "Variables"
+  ],
+  "dependencies": {
+    "@companion-module/base": "^1.10.0",
+    "ws": "^8.13.0"
+  },
+  "devDependencies": {
+    "@companion-module/tools": "^2.0.4"
+  }
+}
