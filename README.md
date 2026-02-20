@@ -22,9 +22,7 @@
 ## Demo
 
 <p align="center">
-  <video width="100%" controls>
-    <source src="https://github.com/mitchschoolvic/Studio-Guide/raw/refs/heads/master/Studio_Guide_Demo.mp4" type="video/mp4">
-    <a href="https://github.com/mitchschoolvic/Studio-Guide/raw/refs/heads/master/Studio_Guide_Demo.mp4">▶️ Watch Studio Guide Demo (MP4)</a>
+  <video width="100%" controls src="https://github.com/user-attachments/assets/8d813e99-3ad8-4d48-a455-9a9ea5d534cb">
   </video>
 </p>
 
