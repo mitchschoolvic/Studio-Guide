@@ -22,10 +22,9 @@
 ## Demo
 
 <p align="center">
-  <!-- Replace with your demo GIF -->
-  <img src="./assets/demo.gif" alt="Studio Guide Demo" width="800">
-  <br>
-  <em>Replace this placeholder with a screen recording of Studio Guide in action</em>
+  <video src="https://github.com/mitchschoolvic/Studio-Guide/raw/main/Studio_Guide_Demo.mp4" controls width="800">
+    <a href="https://github.com/mitchschoolvic/Studio-Guide/raw/main/Studio_Guide_Demo.mp4">Studio Guide Demo</a>
+  </video>
 </p>
 
 ---
