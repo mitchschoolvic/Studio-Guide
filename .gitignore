@@ -52,3 +52,8 @@ coverage/
 
 # Ignore VSCode settings
 .vscode/
+
+# Ignore generated status files from the root
+GITHUB_CLEANUP_STATUS.md
+SECURITY_NOTICE.md
+PUSH_STATUS.md
