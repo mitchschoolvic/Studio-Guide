@@ -4709,6 +4709,14 @@
       { id: "start-play", gesture: config.gestures.startPlayback, page: 1, bank: 3 },
       { id: "stop-play", gesture: config.gestures.stopPlayback, page: 1, bank: 4 }
     ];
+    if (config.gestures.deskModeEnabled) {
+      if (config.gestures.deskUp) {
+        detectors.push({ id: "desk-up", gesture: config.gestures.deskUp, page: 1, bank: 5 });
+      }
+      if (config.gestures.deskDown) {
+        detectors.push({ id: "desk-down", gesture: config.gestures.deskDown, page: 1, bank: 6 });
+      }
+    }
     detectors.forEach((d2) => {
       if (d2.gesture === "None") return;
       let state = triggerStates.get(d2.id);

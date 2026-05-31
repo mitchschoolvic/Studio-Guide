@@ -1,14 +1,21 @@
 #!/bin/bash
+set -e  # Exit immediately on any error so a failed step can't waste a version bump
 
 # Configuration
 APP_NAME="Studio Guide"
 BACKEND_DIR="backend"
-DIST_DIR="release_builds"
 BUILD_DIR="out"
 
+# Resolve the skeleton-app root as an absolute path so all relative paths are
+# correct regardless of where the script is invoked from.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Ensure we are in the script's directory
-cd "$(dirname "$0")/.."
+# Output directory is always relative to the skeleton-app root
+DIST_DIR="$ROOT_DIR/release_builds"
+
+cd "$ROOT_DIR"
+echo "Working directory: $(pwd)"
 
 # Copy new icon
 echo "Copying icon..."
@@ -19,17 +26,22 @@ echo "Using NPM: $(npm -v)"
 
 # --- 1. Version Management ---
 echo "--- 1. Incrementing Version ---"
+
+# Increment patch version and write back to package.json.
+# We use a temp file + mv to make the write atomic.
 node -e "
 const fs = require('fs');
-const pkg = require('./package.json');
+const pkgPath = require('path').resolve('./package.json');
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
 const parts = pkg.version.split('.');
 parts[2] = parseInt(parts[2], 10) + 1;
 pkg.version = parts.join('.');
-fs.writeFileSync('./package.json', JSON.stringify(pkg, null, 2) + '\n');
+fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
 console.log('New Version:', pkg.version);
 "
 
-NEW_VERSION=$(node -p "require('./package.json').version")
+# Read version from disk (fresh parse, no module cache)
+NEW_VERSION=$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('./package.json','utf8')); process.stdout.write(p.version);")
 echo "Building Version: $NEW_VERSION"
 
 
@@ -45,12 +57,17 @@ echo "--- 4a. Building Frontend ---"
 cd "frontend"
 npm install
 npm run build
-cd ..
+cd "$ROOT_DIR"
 
 if [ ! -d "frontend/dist" ]; then
     echo "Error: Frontend build failed. 'frontend/dist' not found."
     exit 1
 fi
+
+# --- 4b. Compile Electron TypeScript (main + preload) ---
+echo "--- 4b. Compiling Electron TypeScript ---"
+npx tsc
+echo "TypeScript compiled to dist/"
 
 npm install
 
@@ -77,12 +94,11 @@ npx electron-packager . "$APP_NAME" \
 APP_PATH="$BUILD_DIR/$APP_NAME-darwin-arm64/$APP_NAME.app"
 
 if [ ! -d "$APP_PATH" ]; then
-    echo "Error: Electron packager failed."
+    echo "Error: Electron packager failed. App not found at: $APP_PATH"
     exit 1
 fi
 
 echo "Electron app packaged at: $APP_PATH"
-
 
 
 # --- 5a. Inject Frontend Dist ---
@@ -138,4 +154,4 @@ fi
 rm -rf "$DMG_SRC_DIR"
 
 echo "--- Full Run & DMG Creation Complete ---"
-
+echo "Output: $DMG_PATH"

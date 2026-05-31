@@ -40,6 +40,9 @@ export interface GestureConfig {
     stopRecording: GestureType;
     startPlayback: GestureType;
     stopPlayback: GestureType;
+    deskUp?: GestureType;
+    deskDown?: GestureType;
+    deskModeEnabled?: boolean;
 }
 
 export interface HandZoneConfig {

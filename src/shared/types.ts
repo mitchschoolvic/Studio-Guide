@@ -95,6 +95,47 @@ export interface MapConfig {
     maxTrackedFaces: number;
 }
 
+// --- Standby / Device Monitoring ---
+
+export interface StandbyDevice {
+    id: string;           // UUID
+    label: string;        // User-friendly name, e.g. "PTZ Camera 1"
+    ip: string;           // IPv4 address, e.g. "192.168.1.100"
+}
+
+export interface MonitorSleepConfig {
+    enabled: boolean;
+    timeoutMinutes: number;
+    activeHoursEnabled: boolean;
+    activeHoursStart: string;        // HH:MM, e.g. "09:00"
+    activeHoursEnd: string;          // HH:MM, e.g. "17:00"
+}
+
+export interface MonitorSleepResult {
+    success: boolean;
+    unsupported?: boolean;
+    error?: string;
+}
+
+export interface StandbyConfig {
+    enabled: boolean;
+    devices: StandbyDevice[];
+    imagePath: string | null;         // Path to stored image in userData
+    imagefit: 'cover' | 'contain';    // How the image fills the screen
+    timeoutSeconds: number;           // Seconds ALL devices must be offline before standby
+    pingIntervalSeconds: number;      // How often to ping (default: 10)
+    monitorSleep: MonitorSleepConfig; // Sleep displays after user inactivity
+    lastKnownStatuses?: DeviceStatus[]; // Persisted device statuses from last session
+}
+
+export interface DeviceStatus {
+    id: string;
+    label: string;
+    ip: string;
+    online: boolean;
+    lastSeen: number;     // Unix timestamp ms
+}
+
 export interface AppConfig {
     camera: CameraConfig;
     geometry: GeometryConfig;
@@ -104,7 +145,8 @@ export interface AppConfig {
     map: MapConfig;
     handZone: HandZoneConfig;
     gestureZone: GestureZoneConfig;
-    gestures: Record<string, string>;
+    gestures: Record<string, string | boolean>;
     alerts?: AlertConfig;
+    standby?: StandbyConfig;
 }
 

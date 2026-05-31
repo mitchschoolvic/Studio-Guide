@@ -28,7 +28,8 @@ import {
     MAP_DEFAULTS,
     HAND_ZONE_DEFAULTS,
     GESTURE_ZONE_DEFAULTS,
-    GESTURE_DEFAULTS
+    GESTURE_DEFAULTS,
+    STANDBY_DEFAULTS
 } from '../shared/constants';
 
 export const MASTER_CONFIG_DEFAULTS: AppConfig = {
@@ -108,6 +109,17 @@ export const MASTER_CONFIG_DEFAULTS: AppConfig = {
     // Alerts
     alerts: {
         rules: []
+    },
+
+    // Standby Screen
+    standby: {
+        enabled: STANDBY_DEFAULTS.enabled,
+        devices: [...STANDBY_DEFAULTS.devices],
+        imagePath: STANDBY_DEFAULTS.imagePath,
+        imagefit: STANDBY_DEFAULTS.imagefit,
+        timeoutSeconds: STANDBY_DEFAULTS.timeoutSeconds,
+        pingIntervalSeconds: STANDBY_DEFAULTS.pingIntervalSeconds,
+        monitorSleep: { ...STANDBY_DEFAULTS.monitorSleep },
     },
 
     // Map projection constants

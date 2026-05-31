@@ -1,7 +1,10 @@
-import { app, BrowserWindow, ipcMain, screen, shell, Display } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell, dialog, Display, powerSaveBlocker } from 'electron';
 import * as path from 'path';
-import { AppConfig } from '../shared/types';
-import { loadUserConfig, saveUserConfig, getConfigPath } from './config-manager';
+import * as fs from 'fs';
+import { AppConfig, StandbyConfig } from '../shared/types';
+import { loadUserConfig, saveUserConfig, getConfigPath, getMasterConfig } from './config-manager';
+import { PingService } from './ping-service';
+import { sleepDisplays } from './monitor-sleep-service';
 import {
     initializeLogger,
     logShutdown,
@@ -18,6 +21,8 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 let secondaryWindow: BrowserWindow | null = null;
+const pingService = new PingService();
+let displaySleepBlockerId: number | null = null;
 
 // --- Window Management ---
 function createWindow() {
@@ -124,6 +129,34 @@ ipcMain.handle('toggle-secondary-window', (event, displayId: number) => {
     return !!secondaryWindow;
 });
 
+ipcMain.handle('sleep-displays', async () => {
+    hardwareLogger.info('IPC: sleep-displays');
+    const result = await sleepDisplays();
+
+    if (!result.success) {
+        hardwareLogger.warn('Display sleep request failed', result);
+    }
+
+    return result;
+});
+
+ipcMain.handle('set-display-sleep-prevented', (_event, prevented: boolean) => {
+    hardwareLogger.info('IPC: set-display-sleep-prevented', { prevented });
+
+    if (prevented) {
+        if (displaySleepBlockerId === null || !powerSaveBlocker.isStarted(displaySleepBlockerId)) {
+            displaySleepBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+        }
+        return true;
+    }
+
+    if (displaySleepBlockerId !== null && powerSaveBlocker.isStarted(displaySleepBlockerId)) {
+        powerSaveBlocker.stop(displaySleepBlockerId);
+    }
+    displaySleepBlockerId = null;
+    return false;
+});
+
 // 3. Config
 ipcMain.handle('get-camera-config', () => {
     configLogger.debug('IPC: get-camera-config');
@@ -201,6 +234,147 @@ ipcMain.handle('send-email-alert', async (_event, { endpointUrl, htmlBody, subje
 ipcMain.handle('update-tracking-config', () => { });
 ipcMain.handle('get-master-config', () => ({}));
 
+// 5. Standby / Device Monitoring
+
+// Select standby image via file dialog, copy to userData
+ipcMain.handle('select-standby-image', async () => {
+    configLogger.info('IPC: select-standby-image');
+    if (!mainWindow) return { success: false, error: 'No main window' };
+
+    const dialogResult: any = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select Standby Image',
+        filters: [
+            { name: 'Images', extensions: ['jpg', 'jpeg', 'png'] }
+        ],
+        properties: ['openFile']
+    });
+
+    // Handle both old and new Electron dialog API shapes
+    const filePaths = dialogResult.filePaths || dialogResult;
+    const canceled = dialogResult.canceled ?? (filePaths.length === 0);
+
+    if (canceled || filePaths.length === 0) {
+        return { success: false, error: 'Cancelled' };
+    }
+
+    const sourcePath = filePaths[0];
+    const ext = path.extname(sourcePath).toLowerCase();
+
+    // Create standby-images directory in userData
+    const standbyDir = path.join(app.getPath('userData'), 'standby-images');
+    if (!fs.existsSync(standbyDir)) {
+        fs.mkdirSync(standbyDir, { recursive: true });
+    }
+
+    // Copy image to userData with fixed name
+    const destPath = path.join(standbyDir, `standby${ext}`);
+
+    // Remove any previous standby images
+    try {
+        const existing = fs.readdirSync(standbyDir);
+        for (const file of existing) {
+            if (file.startsWith('standby.')) {
+                fs.unlinkSync(path.join(standbyDir, file));
+            }
+        }
+    } catch (e: any) {
+        configLogger.warn('Failed to clean old standby images:', e.message);
+    }
+
+    try {
+        fs.copyFileSync(sourcePath, destPath);
+        configLogger.info('Standby image copied to:', destPath);
+        return { success: true, imagePath: destPath };
+    } catch (e: any) {
+        configLogger.error('Failed to copy standby image:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+// Load standby image as base64 data URL for renderer
+ipcMain.handle('get-standby-image', async () => {
+    const config = getMasterConfig();
+    const imagePath = config.standby?.imagePath;
+
+    if (!imagePath || !fs.existsSync(imagePath)) {
+        return null;
+    }
+
+    try {
+        const data = fs.readFileSync(imagePath);
+        const ext = path.extname(imagePath).toLowerCase();
+        const mime = ext === '.png' ? 'image/png' : 'image/jpeg';
+        return `data:${mime};base64,${data.toString('base64')}`;
+    } catch (e: any) {
+        configLogger.error('Failed to load standby image:', e.message);
+        return null;
+    }
+});
+
+// Clear standby image
+ipcMain.handle('clear-standby-image', async () => {
+    configLogger.info('IPC: clear-standby-image');
+    const standbyDir = path.join(app.getPath('userData'), 'standby-images');
+    try {
+        if (fs.existsSync(standbyDir)) {
+            const files = fs.readdirSync(standbyDir);
+            for (const file of files) {
+                fs.unlinkSync(path.join(standbyDir, file));
+            }
+        }
+        return { success: true };
+    } catch (e: any) {
+        configLogger.error('Failed to clear standby image:', e.message);
+        return { success: false, error: e.message };
+    }
+});
+
+// Restart ping service with current config
+ipcMain.handle('restart-ping-service', () => {
+    configLogger.info('IPC: restart-ping-service');
+    startPingServiceFromConfig();
+});
+
+// Ping a single device immediately (used when adding a new device)
+ipcMain.handle('ping-single-device', async (_event, ip: string) => {
+    configLogger.info('IPC: ping-single-device', { ip });
+    return new Promise<boolean>((resolve) => {
+        const isWindows = process.platform === 'win32';
+        const cmd = isWindows
+            ? `ping -n 1 -w 2000 ${ip}`
+            : `ping -c 1 -W 2 ${ip}`;
+
+        const { exec } = require('child_process');
+        exec(cmd, { timeout: 5000 }, (error: any) => {
+            resolve(!error);
+        });
+    });
+});
+
+/**
+ * Initialize or restart the ping service from saved config.
+ */
+function startPingServiceFromConfig(): void {
+    const config = getMasterConfig();
+    const standby = config.standby;
+
+    if (!standby || !standby.enabled || !standby.devices || standby.devices.length === 0) {
+        pingService.stop();
+        // Send empty status to clear any warnings
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('device-status-update', []);
+        }
+        return;
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        pingService.start(standby.devices, standby.pingIntervalSeconds, mainWindow, (statuses) => {
+            // Persist statuses to config on each ping cycle
+            saveUserConfig({ standby: { ...standby, lastKnownStatuses: statuses } });
+        });
+    }
+}
+
 // --- Application Lifecycle ---
 app.whenReady().then(() => {
     // Initialize logging first
@@ -211,6 +385,13 @@ app.whenReady().then(() => {
     
     logger.info('Application ready, creating main window');
     createWindow();
+
+    // Start ping service after window is ready
+    if (mainWindow) {
+        mainWindow.webContents.on('did-finish-load', () => {
+            startPingServiceFromConfig();
+        });
+    }
     
     app.on('activate', () => {
         logger.info('App activated');

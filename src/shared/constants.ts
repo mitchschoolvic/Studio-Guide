@@ -79,6 +79,9 @@ export const GESTURE_DEFAULTS = {
     stopRecording: 'Open_Palm',
     startPlayback: 'Pointing_Up',
     stopPlayback: 'Closed_Fist',
+    deskUp: 'Pointing_Up',
+    deskDown: 'Thumb_Down',
+    deskModeEnabled: false,
 } as const;
 
 export const HAND_ZONE_DEFAULTS = {
@@ -94,5 +97,24 @@ export const GESTURE_ZONE_DEFAULTS = {
     showOverlay: true,
     holdDurationMs: 150, // Debounce time before gesture triggers
     box: { x: 0.3, y: 0.2, width: 0.4, height: 0.6 } // Center-ish default
+} as const;
+
+export const MONITOR_SLEEP_DEFAULTS = {
+    enabled: false,
+    timeoutMinutes: 10,
+    activeHoursEnabled: false,
+    activeHoursStart: '09:00',
+    activeHoursEnd: '17:00',
+} as const;
+
+// Standby Screen Defaults
+export const STANDBY_DEFAULTS = {
+    enabled: false,
+    devices: [],
+    imagePath: null,
+    imagefit: 'contain' as const,
+    timeoutSeconds: 30,
+    pingIntervalSeconds: 10,
+    monitorSleep: { ...MONITOR_SLEEP_DEFAULTS },
 } as const;
 

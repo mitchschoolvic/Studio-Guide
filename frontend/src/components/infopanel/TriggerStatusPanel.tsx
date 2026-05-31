@@ -4,11 +4,14 @@ import { useEffect, useRef, useCallback } from 'react';
 import { GestureType, GestureIcons } from '../../types/schemas';
 import RecordIcon from '../../assets/Record.png';
 import StopIcon from '../../assets/Stop.png';
+import DeskUpIcon from '../../assets/Desk_UP.png';
+import DeskDownIcon from '../../assets/Desk_DOWN.png';
 
 // Animation configuration
 const ANIMATION_CONFIG = {
-    // How fast the visual progress catches up to target (higher = faster)
-    FORWARD_LERP_SPEED: 8,      // Speed when filling (following gesture progress)
+    // Frame-rate independent response rates (higher = faster)
+    FORWARD_RESPONSE: 18,
+    COMPLETION_RESPONSE: 24,
     // Reverse animation timing
     REVERSE_PAUSE_DURATION: 300,  // Pause before reversing starts (ms)
     REVERSE_RAMP_DURATION: 600,   // Time to reach full reverse speed (ms)
@@ -68,6 +71,13 @@ export function TriggerStatusPanel() {
         { id: 'stop-play', label: 'STOP', gestureKey: 'stopPlayback' as keyof typeof settings.gestures },
     ];
 
+    if (settings.gestures?.deskModeEnabled) {
+        triggers.push(
+            { id: 'desk-up', label: 'DESK ↑', gestureKey: 'deskUp' as keyof typeof settings.gestures },
+            { id: 'desk-down', label: 'DESK ↓', gestureKey: 'deskDown' as keyof typeof settings.gestures }
+        );
+    }
+
     const visibleTriggers = triggers.filter(t => settings.gestureVisibility?.[t.gestureKey] ?? true);
 
     // Initialize state for each trigger
@@ -92,29 +102,23 @@ export function TriggerStatusPanel() {
     // Animation loop using requestAnimationFrame for smooth 60fps
     const animate = useCallback(() => {
         const now = performance.now();
-        const liveTriggers = liveTriggersRef.current;
-        const livePendingTriggers = livePendingTriggersRef.current;
-        const activeIds = new Set(liveTriggers?.current || []);
-        const pendingMap = new Map<string, number>();
-
-        (livePendingTriggers?.current || []).forEach(p => {
-            pendingMap.set(p.id, p.progress);
-        });
+        const activeTriggers = liveTriggersRef.current?.current || [];
+        const pendingTriggers = livePendingTriggersRef.current?.current || [];
 
         stateRef.current.forEach((state, id) => {
             const bar = barRefs.current.get(id);
             if (!bar) return;
 
             // Calculate delta time for frame-rate independent animation
-            const deltaTime = Math.min((now - state.lastFrameTime) / 1000, 0.1); // Cap at 100ms
+            const deltaTime = Math.min((now - state.lastFrameTime) / 1000, 0.05); // Cap catch-up after stalls
             state.lastFrameTime = now;
 
-            const isActive = activeIds.has(id);
-            const isPending = pendingMap.has(id);
-            const rawTargetProgress = pendingMap.get(id) ?? 0;
+            const isActive = includesTrigger(activeTriggers, id);
+            const rawTargetProgress = getPendingProgress(pendingTriggers, id);
+            const isPending = rawTargetProgress !== null;
 
             // Update target progress
-            state.targetProgress = rawTargetProgress;
+            state.targetProgress = rawTargetProgress ?? 0;
 
             // Phase transition logic (state machine)
             const previousPhase = state.phase;
@@ -122,7 +126,7 @@ export function TriggerStatusPanel() {
 
             // Handle phase entry actions
             if (state.phase === 'completed' && previousPhase !== 'completed') {
-                state.displayProgress = 1;
+                state.targetProgress = 1;
                 state.reverseStartTime = null;
             }
             if (state.phase === 'fading' && previousPhase !== 'fading') {
@@ -157,9 +161,15 @@ export function TriggerStatusPanel() {
                     break;
 
                 case 'filling': {
-                    // Apply ease-in-out curve: smooth start and end
-                    // Display directly follows the eased target (no lerp layer needed)
-                    state.displayProgress = easeInOutQuad(state.targetProgress);
+                    // Incoming gesture progress arrives at tracking cadence, not display cadence.
+                    // Damp toward the eased target on every frame so intermittent updates stay smooth.
+                    const easedTarget = easeInOutQuad(clamp01(state.targetProgress));
+                    state.displayProgress = damp(
+                        state.displayProgress,
+                        easedTarget,
+                        ANIMATION_CONFIG.FORWARD_RESPONSE,
+                        deltaTime
+                    );
                     
                     scale = state.displayProgress;
                     opacity = 0.3 + state.displayProgress * 0.7;
@@ -207,10 +217,22 @@ export function TriggerStatusPanel() {
                     break;
                 }
 
-                case 'completed':
-                    scale = 1;
+                case 'completed': {
+                    state.displayProgress = damp(
+                        state.displayProgress,
+                        1,
+                        ANIMATION_CONFIG.COMPLETION_RESPONSE,
+                        deltaTime
+                    );
+
+                    if (1 - state.displayProgress < ANIMATION_CONFIG.SNAP_TO_ZERO_THRESHOLD) {
+                        state.displayProgress = 1;
+                    }
+
+                    scale = state.displayProgress;
                     opacity = 1;
                     break;
+                }
 
                 case 'fading': {
                     const fadeElapsed = now - (state.fadeStartTime ?? now);
@@ -369,6 +391,10 @@ export function TriggerStatusPanel() {
                                     <img src={RecordIcon} alt="REC" style={{ height: '1.5em', width: 'auto' }} />
                                 ) : t.id === 'stop-rec' ? (
                                     <img src={StopIcon} alt="STOP" style={{ height: '1.5em', width: 'auto' }} />
+                                ) : t.id === 'desk-up' ? (
+                                    <img src={DeskUpIcon} alt="DESK UP" style={{ height: '1.5em', width: 'auto' }} />
+                                ) : t.id === 'desk-down' ? (
+                                    <img src={DeskDownIcon} alt="DESK DOWN" style={{ height: '1.5em', width: 'auto' }} />
                                 ) : (
                                     t.label
                                 )}
@@ -403,13 +429,6 @@ function easeOutCubic(t: number): number {
 }
 
 /**
- * Ease-in cubic: slow start, accelerating (used for filling animation)
- */
-function easeInCubic(t: number): number {
-    return t * t * t;
-}
-
-/**
  * Ease-in quadratic: slow start, accelerating
  */
 function easeInQuad(t: number): number {
@@ -429,6 +448,29 @@ function easeInOutQuad(t: number): number {
 function lerp(current: number, target: number, factor: number): number {
     const clamped = Math.min(1, Math.max(0, factor));
     return current + (target - current) * clamped;
+}
+
+function damp(current: number, target: number, response: number, deltaTime: number): number {
+    return target + (current - target) * Math.exp(-response * deltaTime);
+}
+
+function clamp01(value: number): number {
+    return Math.min(1, Math.max(0, value));
+}
+
+function includesTrigger(triggers: string[], id: string): boolean {
+    for (let index = 0; index < triggers.length; index += 1) {
+        if (triggers[index] === id) return true;
+    }
+    return false;
+}
+
+function getPendingProgress(pendingTriggers: { id: string; progress: number }[], id: string): number | null {
+    for (let index = 0; index < pendingTriggers.length; index += 1) {
+        const pendingTrigger = pendingTriggers[index];
+        if (pendingTrigger.id === id) return pendingTrigger.progress;
+    }
+    return null;
 }
 
 /**

@@ -148,6 +148,15 @@ function evaluateTriggers(hands: DetectedHand[], timestamp: number): TriggerResu
         { id: 'stop-play', gesture: config.gestures.stopPlayback, page: 1, bank: 4 },
     ];
 
+    if (config.gestures.deskModeEnabled) {
+        if (config.gestures.deskUp) {
+            detectors.push({ id: 'desk-up', gesture: config.gestures.deskUp, page: 1, bank: 5 });
+        }
+        if (config.gestures.deskDown) {
+            detectors.push({ id: 'desk-down', gesture: config.gestures.deskDown, page: 1, bank: 6 });
+        }
+    }
+
     detectors.forEach(d => {
         if (d.gesture === 'None') return;
 

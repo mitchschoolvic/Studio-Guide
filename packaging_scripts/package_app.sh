@@ -51,6 +51,15 @@ if [ ! -d "frontend/dist" ]; then
     exit 1
 fi
 
+# --- 4b. Compile Electron TypeScript (main + preload) ---
+echo "--- 4b. Compiling Electron TypeScript ---"
+npx tsc
+if [ $? -ne 0 ]; then
+    echo "Error: TypeScript compilation failed."
+    exit 1
+fi
+echo "TypeScript compiled to dist/"
+
 npm install
 
 echo "Rebuilding native modules for Electron..."

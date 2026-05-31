@@ -1,6 +1,7 @@
 # Ignore build outputs and binaries
 release_builds/
 out/
+dist/
 
 # Ignore logs and context files
 log.txt
@@ -52,6 +53,16 @@ coverage/
 
 # Ignore VSCode settings
 .vscode/
+.idea/
+
+# Ignore video/audio assets (large binaries)
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Ignore generated packaging scripts (environment-specific)
+packaging_scripts/recreate_repo.sh
 
 # Ignore generated status files from the root
 GITHUB_CLEANUP_STATUS.md

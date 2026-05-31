@@ -121,6 +121,9 @@ export interface TrackingWorkerConfig {
         stopRecording: string;
         startPlayback: string;
         stopPlayback: string;
+        deskUp?: string;
+        deskDown?: string;
+        deskModeEnabled?: boolean;
     };
 
     // Dynamic Thresholds & Paths (Injected)
@@ -183,7 +186,10 @@ export function toWorkerConfig(config: TrackingConfig, constants: any): Tracking
             startRecording: config.gestures.startRecording,
             stopRecording: config.gestures.stopRecording,
             startPlayback: config.gestures.startPlayback,
-            stopPlayback: config.gestures.stopPlayback
+            stopPlayback: config.gestures.stopPlayback,
+            deskUp: (config.gestures as any).deskUp,
+            deskDown: (config.gestures as any).deskDown,
+            deskModeEnabled: (config.gestures as any).deskModeEnabled ?? false,
         },
 
         // Injected constants

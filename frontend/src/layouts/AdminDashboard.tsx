@@ -3,6 +3,7 @@ import { FaceTrackerCard } from '../components/FaceTrackerCard';
 import { TopDownMapGL } from '../components/TopDownMapGL';
 import { ZoneSettingsPanel } from '../components/ZoneSettingsPanel'; // Import new panel
 import { FitText } from '../components/common/FitText';
+import { DisconnectedBanner } from '../components/DisconnectedBanner';
 import { useTracking } from '../contexts/TrackingContext';
 import { useConfig } from '../contexts/ConfigContext';
 import { SettingsModal } from './SettingsModal';
@@ -29,6 +30,8 @@ export function AdminDashboard() {
 
             {/* Main Grid Dashboard */}
             <div className="dashboard-main">
+                {/* Disconnected Device Warning Banner */}
+                <DisconnectedBanner />
                 {/* Connection Status Bar */}
                 <div style={{
                     position: 'absolute', top: 10, right: 10, zIndex: 999,

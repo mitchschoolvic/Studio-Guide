@@ -5,6 +5,7 @@ import { FaceVector, GestureType, GestureIcons } from '../types/schemas';
 import { useTracking } from '../contexts/TrackingContext';
 import { useConfig } from '../contexts/ConfigContext';
 import { EmailAlertSettings } from '../components/EmailAlertSettings';
+import { StandbySettings } from '../components/StandbySettings';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -53,7 +54,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     } = useHardware();
 
     const { showToast, toastMessage } = useUI();
-    const [activeTab, setActiveTab] = useState<'general' | 'zones' | 'gestures' | 'calibration' | 'debug' | 'overlays' | 'alerts'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'zones' | 'gestures' | 'calibration' | 'debug' | 'overlays' | 'alerts' | 'standby'>('general');
 
     return (
         <div className="settings-modal-overlay" onClick={(e) => {
@@ -85,7 +86,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                 {/* Tab Navigation */}
                 <div style={{ display: 'flex', gap: 5, marginBottom: 15, borderBottom: '1px solid #444', paddingBottom: 5 }}>
-                    {(['general', 'zones', 'gestures', 'calibration', 'debug', 'overlays', 'alerts'] as const).map(tab => (
+                    {(['general', 'zones', 'gestures', 'calibration', 'debug', 'overlays', 'alerts', 'standby'] as const).map(tab => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -313,6 +314,92 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         </select>
                                     </div>
                                 ))}
+
+                                {/* Desk Mode Toggle */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, padding: '10px 0', borderTop: '1px solid #444' }}>
+                                    <div>
+                                        <label style={{ fontSize: '0.9em', fontWeight: 'bold', color: '#ddd' }}>Desk Mode</label>
+                                        <div style={{ fontSize: '0.75em', color: '#888' }}>Enable desk control gestures</div>
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.gestures?.deskModeEnabled ?? false}
+                                        onChange={(e) => {
+                                            updateSettings({
+                                                gestures: {
+                                                    ...(settings.gestures || {
+                                                        startRecording: GestureType.None,
+                                                        stopRecording: GestureType.None,
+                                                        startPlayback: GestureType.None,
+                                                        stopPlayback: GestureType.None,
+                                                        deskUp: GestureType.Pointing_Up,
+                                                        deskDown: GestureType.Thumb_Down,
+                                                        deskModeEnabled: false
+                                                    }),
+                                                    deskModeEnabled: e.target.checked
+                                                }
+                                            });
+                                        }}
+                                        style={{ width: 18, height: 18, cursor: 'pointer' }}
+                                    />
+                                </div>
+
+                                {settings.gestures?.deskModeEnabled && (
+                                    <>
+                                        {[
+                                            { label: 'Desk Up', key: 'deskUp' },
+                                            { label: 'Desk Down', key: 'deskDown' }
+                                        ].map(item => (
+                                            <div key={item.key} style={{ width: '100%', marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2, alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.8em', color: '#ccc' }}>{item.label}</span>
+                                                    <label style={{ fontSize: '0.7em', color: '#888', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                        Show
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={settings.gestureVisibility?.[item.key] ?? true}
+                                                            onChange={(e) => {
+                                                                const isVisible = e.target.checked;
+                                                                const currentVisibility = settings.gestureVisibility || {};
+                                                                updateSettings({
+                                                                    gestureVisibility: {
+                                                                        ...currentVisibility,
+                                                                        [item.key]: isVisible
+                                                                    }
+                                                                });
+                                                            }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                                <select
+                                                    value={settings.gestures?.[item.key as keyof typeof settings.gestures] || 'None'}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value as GestureType;
+                                                        updateSettings({
+                                                            gestures: {
+                                                                ...(settings.gestures || {
+                                                                    startRecording: GestureType.None,
+                                                                    stopRecording: GestureType.None,
+                                                                    startPlayback: GestureType.None,
+                                                                    stopPlayback: GestureType.None,
+                                                                    deskUp: GestureType.Pointing_Up,
+                                                                    deskDown: GestureType.Thumb_Down,
+                                                                    deskModeEnabled: false
+                                                                }),
+                                                                [item.key]: val
+                                                            }
+                                                        });
+                                                    }}
+                                                    style={{ width: '100%', padding: 6, background: '#333', color: '#fff', border: '1px solid #555', borderRadius: 4 }}
+                                                >
+                                                    {Object.values(GestureType).map(g => (
+                                                        <option key={g} value={g}>{GestureIcons[g].icon} {GestureIcons[g].label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
@@ -491,6 +578,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 alertConfig={settings.alerts}
                                 onSave={(config) => updateSettings({ alerts: config })}
                             />
+                        </div>
+                    )}
+
+                    {/* === STANDBY TAB === */}
+                    {activeTab === 'standby' && (
+                        <div className="tab-content">
+                            <StandbySettings />
                         </div>
                     )}
                 </div>
